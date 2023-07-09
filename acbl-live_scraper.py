@@ -2,6 +2,8 @@ import scrapy
 from scrapy.crawler import CrawlerProcess
 import re
 import json
+import mariadb
+
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
@@ -24,8 +26,6 @@ class ACBL_spider(scrapy.Spider):
 
                 # Load the data as a JSON object
                 data = json.loads(script_code)
-                with open('extracted_data.json', 'w') as f:
-                    json.dump(data, f)
 
 
             else:
@@ -46,6 +46,32 @@ class ACBL_spider(scrapy.Spider):
             self.logger.error(f"Timeout Error occurred for URL: {request.url}")
         else:
             self.logger.error(f"Error occurred: {failure.getErrorMessage()}")
+
+class DatabasePipeline():
+    data_file = 'db.json'
+    data_folder = 'settings'
+    if sys.platform == 'linux':
+        file_path = os.path.join(data_folder,data_file)
+    else:
+        file_path = os.path.join(data_folder,data_file)
+    with open(file_path,'r') as file:
+        cred_data = json.load(file)
+    cur = None
+    #allow flexibilty on the database type to be allowed to do this at work and test environment
+    if self.cred_data['system'] == 'mariadb':
+        dbtype="mariadb"
+        try:
+            conn = db.connect(
+                user=self.cred_data['user'],
+                password=self.cred_data['password'],
+                host=self.cred_data['host'],
+                port=self.cred_data['port'],
+                database=self.cred_data['database']
+        )
+            print("link to database was created")
+            self.cur = conn.cursor()
+        except db.Error as e:
+            print(f"Error connecting to MariaDB")
 
 
 
