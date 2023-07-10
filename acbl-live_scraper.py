@@ -61,7 +61,7 @@ class DatabasePipeline():
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
-    start_urls = ['https://my.acbl.org/club-results/details/817779']
+    start_urls = ['https://my.acbl.org/club-results/details/817779'] #starting with this just as a sample. Will move up a level
     mydb = DatabasePipeline()
 
     def start_requests(self):
@@ -88,9 +88,8 @@ class ACBL_spider(scrapy.Spider):
                 #club_df = df.DataFrame(merged_club_data)
                 #print(club_df)
                 players_df = self.get_players(data)
+                club_df = self.get_club(data)
                 self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num')
-
-
 
 
             else:
@@ -116,6 +115,7 @@ class ACBL_spider(scrapy.Spider):
         pass
 
     def get_players(self,data):
+        #specific player data
         player_list = []
 
         sessions = data['sessions']
@@ -137,11 +137,25 @@ class ACBL_spider(scrapy.Spider):
                         })
 
 
-
+        print("Building Player Data")
         df = pd.DataFrame(player_list, columns=['name', 'acbl_num', 'city', 'state', 'lifemaster', 'master_points', 'bbo_username'])
         return df
 
+    def get_club(self,data):
+        club_list = []
 
+        club = data['club']
+        club_list.append({
+            'club_num': club['id'],
+            'club_name': club['name'],
+            'unit_num': club['unit_no'],
+            'district_num': club['district_no'],
+            'manager_num': club['manager_no'],
+            'alias': club['alias']
+        })
+        print("Building club")
+        df = pd.DataFrame(club_list, columns=['club_num', 'club_name','unit_num','district_num','manager_num','alias'])
+        return df
 
 
 
