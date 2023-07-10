@@ -31,16 +31,24 @@ class DatabasePipeline():
             except mariadb.Error as e:
                 print(f"Error connecting to MariaDB")
 
-    def upload_df_to_database(self, df, table_name):
+    def upload_df_to_database(self, df, table_name, prim_key=None):
         sql_columns = ', '.join(df.columns)
         placeholders = ', '.join('?' for column in df.columns)
+        update_statements = ', '.join(f'{column} = VALUES({column})' for column in df.columns if column != prim_key)  # Exclude primary key column from updates
 
         # Iterate over DataFrame rows
         for idx, row in df.iterrows():
-            sql = f"""
-            INSERT INTO {table_name} ({sql_columns})
-            VALUES ({placeholders})
-            """
+            if prim_key:
+                sql = f"""
+                INSERT INTO player_data ({sql_columns})
+                VALUES ({placeholders})
+                ON DUPLICATE KEY UPDATE {update_statements}
+                """
+            else:
+                sql = f"""
+                INSERT INTO {table_name} ({sql_columns})
+                VALUES ({placeholders})
+                """
             try:
                 self.cur.execute(sql, tuple(row))
             except mariadb.Error as e:
@@ -76,9 +84,11 @@ class ACBL_spider(scrapy.Spider):
 
                 #scub for the necessary data
                 id_value = data.get('id')
-                club = data.get('club')
-                players = self.get_players(data)
-                self.mydb.upload_df_to_database(df=players,table_name='player_data')
+                #merged_club_data = {k: v for d in data.get('club') for k, v in d.items()}
+                #club_df = df.DataFrame(merged_club_data)
+                #print(club_df)
+                players_df = self.get_players(data)
+                self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num')
 
 
 
@@ -122,14 +132,13 @@ class ACBL_spider(scrapy.Spider):
                         'city': player['city'],
                         'state': player['state'],
                         'lifemaster': player['lifemaster'],
-                        'master_points': player['mp_total'],
+                        'master_points': float(player['mp_total']),
                         'bbo_username': player['bbo_username']
                         })
 
 
 
         df = pd.DataFrame(player_list, columns=['name', 'acbl_num', 'city', 'state', 'lifemaster', 'master_points', 'bbo_username'])
-        print(df)
         return df
 
 
