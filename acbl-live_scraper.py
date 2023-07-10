@@ -4,11 +4,57 @@ import re
 import json
 import mariadb
 import os
+import pandas as pd
+
+
+
+class DatabasePipeline():
+    def __init__(self):
+        data_file = 'db.json'
+        data_folder = 'settings'
+        file_path = os.path.join('acblclub-scrap',data_folder,data_file) 
+        with open(file_path,'r') as file:
+            self.cred_data = json.load(file)
+        self.cur = None
+    #allow flexibilty on the database type to be allowed to do this at work and test environment
+        if self.cred_data['system'] == 'mariadb':
+            try:
+                self.conn = mariadb.connect(
+                    user=self.cred_data['user'],
+                    password=self.cred_data['password'],
+                    host=self.cred_data['host'],
+                    port=self.cred_data['port'],
+                    database=self.cred_data['database']
+            )
+                print("link to database was created")
+                self.cur = self.conn.cursor()
+            except mariadb.Error as e:
+                print(f"Error connecting to MariaDB")
+
+    def upload_df_to_database(self, df, table_name):
+        sql_columns = ', '.join(df.columns)
+        placeholders = ', '.join('?' for column in df.columns)
+
+        # Iterate over DataFrame rows
+        for idx, row in df.iterrows():
+            sql = f"""
+            INSERT INTO {table_name} ({sql_columns})
+            VALUES ({placeholders})
+            """
+            try:
+                self.cur.execute(sql, tuple(row))
+            except mariadb.Error as e:
+                #trying to account for the duplicate records
+                print(e)
+
+        self.conn.commit()
+
 
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
     start_urls = ['https://my.acbl.org/club-results/details/817779']
+    mydb = DatabasePipeline()
 
     def start_requests(self):
         headers = {'User-Agent': 'Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16'}
@@ -32,10 +78,9 @@ class ACBL_spider(scrapy.Spider):
                 id_value = data.get('id')
                 club = data.get('club')
                 players = self.get_players(data)
+                self.mydb.upload_df_to_database(df=players,table_name='player_data')
 
 
-
-                self.handle_data(id_value,club,players,pairs,session,results)
 
 
             else:
@@ -61,14 +106,7 @@ class ACBL_spider(scrapy.Spider):
         pass
 
     def get_players(self,data):
-        player_dict = {}
-        names = []
-        acbl_nums = []
-        city = []
-        prov = []
-        mp = []
-        bbo_username = []
-        lifemaster = []
+        player_list = []
 
         sessions = data['sessions']
         for session_num in range(len(sessions)):
@@ -78,47 +116,22 @@ class ACBL_spider(scrapy.Spider):
                 for pair_num in range(len(pairs)):
                     players = pairs[pair_num]['players']
                     for player in players:
-                        names.append((player['name']))
-                        acbl_nums.append(player['id_number'])
-                        city.append(player['city'])
-                        prov.append(player['state'])
-                        mp.append(player['mp_total'])
-                        bbo_username.append(player['bbo_username'])
-                        lifemaster.append(player['lifemaster'])
+                        player_list.append({
+                        'name': player['name'],
+                        'acbl_num': player['id_number'],
+                        'city': player['city'],
+                        'state': player['state'],
+                        'lifemaster': player['lifemaster'],
+                        'master_points': player['mp_total'],
+                        'bbo_username': player['bbo_username']
+                        })
 
 
 
-        player_dict = {'name': names, 'acbl_num': acbl_nums, 'city':city, 'state':prov,'master_points':mp, 'bbo_username':bbo_username, 'lifemaster':lifemaster}
+        df = pd.DataFrame(player_list, columns=['name', 'acbl_num', 'city', 'state', 'lifemaster', 'master_points', 'bbo_username'])
+        print(df)
+        return df
 
-
-
-        print(player_dict)
-
-
-        return player_dict
-
-
-class DatabasePipeline():
-    data_file = 'db.json'
-    data_folder = 'settings'
-    file_path = os.path.join('acblclub-scrap',data_folder,data_file) #stupid folder is being added
-    with open(file_path,'r') as file:
-        cred_data = json.load(file)
-    cur = None
-    #allow flexibilty on the database type to be allowed to do this at work and test environment
-    if cred_data['system'] == 'mariadb':
-        try:
-            conn = mariadb.connect(
-                user=cred_data['user'],
-                password=cred_data['password'],
-                host=cred_data['host'],
-                port=cred_data['port'],
-                database=cred_data['database']
-        )
-            print("link to database was created")
-            cur = conn.cursor()
-        except mariadb.Error as e:
-            print(f"Error connecting to MariaDB")
 
 
 
