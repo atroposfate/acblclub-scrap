@@ -3,6 +3,7 @@ from scrapy.crawler import CrawlerProcess
 import re
 import json
 import mariadb
+import os
 
 
 class ACBL_spider(scrapy.Spider):
@@ -27,6 +28,15 @@ class ACBL_spider(scrapy.Spider):
                 # Load the data as a JSON object
                 data = json.loads(script_code)
 
+                #scub for the necessary data
+                id_value = data.get('id')
+                club = data.get('club')
+                players = self.get_players(data)
+
+
+
+                self.handle_data(id_value,club,players,pairs,session,results)
+
 
             else:
                 self.logger.error("Unable to find 'data' variable in the response")
@@ -47,31 +57,72 @@ class ACBL_spider(scrapy.Spider):
         else:
             self.logger.error(f"Error occurred: {failure.getErrorMessage()}")
 
+    def handle_data(self,data):
+        pass
+
+    def get_players(self,data):
+        player_dict = {}
+        names = []
+        acbl_nums = []
+        city = []
+        prov = []
+        mp = []
+        bbo_username = []
+        lifemaster = []
+
+        sessions = data['sessions']
+        for session_num in range(len(sessions)):
+            sections = sessions[session_num]['sections']
+            for section_num in range(len(sections)):
+                pairs = sections[section_num]['pair_summaries']
+                for pair_num in range(len(pairs)):
+                    players = pairs[pair_num]['players']
+                    for player in players:
+                        names.append((player['name']))
+                        acbl_nums.append(player['id_number'])
+                        city.append(player['city'])
+                        prov.append(player['state'])
+                        mp.append(player['mp_total'])
+                        bbo_username.append(player['bbo_username'])
+                        lifemaster.append(player['lifemaster'])
+
+
+
+        player_dict = {'name': names, 'acbl_num': acbl_nums, 'city':city, 'state':prov,'master_points':mp, 'bbo_username':bbo_username, 'lifemaster':lifemaster}
+
+
+
+        print(player_dict)
+
+
+        return player_dict
+
+
 class DatabasePipeline():
     data_file = 'db.json'
     data_folder = 'settings'
-    if sys.platform == 'linux':
-        file_path = os.path.join(data_folder,data_file)
-    else:
-        file_path = os.path.join(data_folder,data_file)
+    file_path = os.path.join('acblclub-scrap',data_folder,data_file) #stupid folder is being added
     with open(file_path,'r') as file:
         cred_data = json.load(file)
     cur = None
     #allow flexibilty on the database type to be allowed to do this at work and test environment
-    if self.cred_data['system'] == 'mariadb':
-        dbtype="mariadb"
+    if cred_data['system'] == 'mariadb':
         try:
-            conn = db.connect(
-                user=self.cred_data['user'],
-                password=self.cred_data['password'],
-                host=self.cred_data['host'],
-                port=self.cred_data['port'],
-                database=self.cred_data['database']
+            conn = mariadb.connect(
+                user=cred_data['user'],
+                password=cred_data['password'],
+                host=cred_data['host'],
+                port=cred_data['port'],
+                database=cred_data['database']
         )
             print("link to database was created")
-            self.cur = conn.cursor()
-        except db.Error as e:
+            cur = conn.cursor()
+        except mariadb.Error as e:
             print(f"Error connecting to MariaDB")
+
+
+
+
 
 
 
