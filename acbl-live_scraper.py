@@ -5,6 +5,7 @@ import json
 import mariadb
 import os
 import pandas as pd
+import datetime as datetime
 
 
 
@@ -31,13 +32,22 @@ class DatabasePipeline():
             except mariadb.Error as e:
                 print(f"Error connecting to MariaDB")
 
-    def upload_df_to_database(self, df, table_name, prim_key=None):
+    def upload_df_to_database(self, df, table_name, prim_key=None,date_check=False):
+
+        #this is a little ugly but don't want to update the player table unless it is new information
         sql_columns = ', '.join(df.columns)
         placeholders = ', '.join('?' for column in df.columns)
-        update_statements = ', '.join(f'{column} = VALUES({column})' for column in df.columns if column != prim_key)  # Exclude primary key column from updates
+       
+        if date_check:
+        # Add condition to only update rows where date_updated is older
+            update_statements = ', '.join(f'{column} = CASE WHEN VALUES(date_updated) > date_updated THEN VALUES({column}) ELSE {column} END' for column in df.columns if column != prim_key)
+        else:
+            update_statements = ', '.join(f'{column} = VALUES({column})' for column in df.columns if column != prim_key)  # Exclude primary key column from updates
+
 
         # Iterate over DataFrame rows
         for idx, row in df.iterrows():
+            
             if prim_key:
                 sql = f"""
                 INSERT INTO player_data ({sql_columns})
@@ -84,13 +94,13 @@ class ACBL_spider(scrapy.Spider):
 
                 #scub for the necessary data
                 id_value = data.get('id')
-                #merged_club_data = {k: v for d in data.get('club') for k, v in d.items()}
-                #club_df = df.DataFrame(merged_club_data)
-                #print(club_df)
+
                 players_df = self.get_players(data)
                 club_df = self.get_club(data)
-                self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num')
+                game_df = self.get_game_details(data)
+                self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num', date_check=True)
                 self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
+                self.mydb.upload_df_to_database(df=game_df, table_name='game_data')
 
 
             else:
@@ -134,12 +144,13 @@ class ACBL_spider(scrapy.Spider):
                         'state': player['state'],
                         'lifemaster': player['lifemaster'],
                         'master_points': float(player['mp_total']),
-                        'bbo_username': player['bbo_username']
+                        'bbo_username': player['bbo_username'],
+                        'last_updated': datetime.strptime(data['sessions'][0]['game_date'], "%Y-%m-%d %H:%M:%S").date() #used to make sure only the latest is updated
                         })
 
 
-        print("Building Player Data")
-        df = pd.DataFrame(player_list, columns=['name', 'acbl_num', 'city', 'state', 'lifemaster', 'master_points', 'bbo_username'])
+        print("Building Player Data for game..." + str(data['id']))
+        df = pd.DataFrame(player_list, columns=['name', 'acbl_num', 'city', 'state', 'lifemaster', 'master_points', 'bbo_username','last_updated'])
         return df
 
     def get_club(self,data):
@@ -154,14 +165,38 @@ class ACBL_spider(scrapy.Spider):
             'manager_num': club['manager_no'],
             'alias': club['alias']
         })
-        print("Building club")
+        print("Building Club Data")
         df = pd.DataFrame(club_list, columns=['club_num', 'club_name','unit_num','district_num','manager_num','alias'])
         return df
 
 
+    def get_game_details(self,data):
+        game_detail_list = []
 
+        section_count = 0
+        for section_num in range(len(data['sessions'])):
+            section_count += int(data['sessions'][section_num]['number_of_sections'])
 
+        game_details_list.append({
+            'game_id': data['id'],
+            'game_name': data['name'],
+            'game_rating': data['rating'],
+            'club_num': data['club_id_number'],
+            'game_type': data['type'],
+            'scoring_method': data['board_scoring_method'],
+            'start_date': data['start_date'],
+            'end_date': data['start_date'],
+            'session_cnt': data['number_of_sessions'],
+            'section_cnt': section_count
+        })
 
+        print("Building Game Data")
+        df = pd.DataFrame(game_details_list, columns=['game_id', 'game_name', 'game_rating','club_num','game_type','scoring_method','start_date','end_date','session_cnt','section_cnt'])
+        return df
+
+    def get_section_data(self,data):
+    #collapsing the session and section data into one table
+        pass
 
 if __name__ == "__main__":
     process = CrawlerProcess()
