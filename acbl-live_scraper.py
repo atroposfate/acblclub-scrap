@@ -12,7 +12,7 @@ class DatabasePipeline():
     def __init__(self):
         data_file = 'db.json'
         data_folder = 'settings'
-        file_path = os.path.join('acblclub-scrap',data_folder,data_file) 
+        file_path = os.path.join(data_folder,data_file) 
         with open(file_path,'r') as file:
             self.cred_data = json.load(file)
         self.cur = None
@@ -90,6 +90,7 @@ class ACBL_spider(scrapy.Spider):
                 players_df = self.get_players(data)
                 club_df = self.get_club(data)
                 self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num')
+                self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
 
 
             else:
