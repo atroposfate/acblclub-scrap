@@ -5,7 +5,7 @@ import json
 import mariadb
 import os
 import pandas as pd
-import datetime as datetime
+from datetime import datetime
 
 
 
@@ -39,8 +39,8 @@ class DatabasePipeline():
         placeholders = ', '.join('?' for column in df.columns)
        
         if date_check:
-        # Add condition to only update rows where date_updated is older
-            update_statements = ', '.join(f'{column} = CASE WHEN VALUES(date_updated) > date_updated THEN VALUES({column}) ELSE {column} END' for column in df.columns if column != prim_key)
+        # Add condition to only update rows where last updated is older
+            update_statements = ', '.join(f'{column} = CASE WHEN VALUES(last_updated) > last_updated THEN VALUES({column}) ELSE {column} END' for column in df.columns if column != prim_key)
         else:
             update_statements = ', '.join(f'{column} = VALUES({column})' for column in df.columns if column != prim_key)  # Exclude primary key column from updates
 
@@ -71,7 +71,7 @@ class DatabasePipeline():
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
-    start_urls = ['https://my.acbl.org/club-results/details/817779'] #starting with this just as a sample. Will move up a level
+    start_urls = ['https://my.acbl.org/club-results/details/813684'] #starting with this just as a sample. Will move up a level
     mydb = DatabasePipeline()
 
     def start_requests(self):
@@ -177,21 +177,21 @@ class ACBL_spider(scrapy.Spider):
         for section_num in range(len(data['sessions'])):
             section_count += int(data['sessions'][section_num]['number_of_sections'])
 
-        game_details_list.append({
+        game_detail_list.append({
             'game_id': data['id'],
             'game_name': data['name'],
             'game_rating': data['rating'],
             'club_num': data['club_id_number'],
             'game_type': data['type'],
             'scoring_method': data['board_scoring_method'],
-            'start_date': data['start_date'],
-            'end_date': data['start_date'],
+            'start_date': datetime.strptime(data['start_date'],"%m/%d/%Y").date(),
+            'end_date': datetime.strptime(data['end_date'],"%m/%d/%Y").date(),
             'session_cnt': data['number_of_sessions'],
             'section_cnt': section_count
         })
 
         print("Building Game Data")
-        df = pd.DataFrame(game_details_list, columns=['game_id', 'game_name', 'game_rating','club_num','game_type','scoring_method','start_date','end_date','session_cnt','section_cnt'])
+        df = pd.DataFrame(game_detail_list, columns=['game_id', 'game_name', 'game_rating','club_num','game_type','scoring_method','start_date','end_date','session_cnt','section_cnt'])
         return df
 
     def get_section_data(self,data):
