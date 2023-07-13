@@ -71,7 +71,7 @@ class DatabasePipeline():
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
-    start_urls = ['https://my.acbl.org/club-results/details/813684'] #starting with this just as a sample. Will move up a level
+    start_urls = ['https://my.acbl.org/club-results/details/821956'] #starting with this just as a sample. Will move up a level
     mydb = DatabasePipeline()
 
     def start_requests(self):
@@ -98,9 +98,15 @@ class ACBL_spider(scrapy.Spider):
                 players_df = self.get_players(data)
                 club_df = self.get_club(data)
                 game_df = self.get_game_details(data)
+                section_df = self.get_section_data(data)
+                hand_record = self.get_hand_records(data) #this returns a dictionary for 2 tables
+                print(players_df)
                 self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num', date_check=True)
                 self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
                 self.mydb.upload_df_to_database(df=game_df, table_name='game_data')
+                self.mydb.upload_df_to_database(df=section_df, table_name='section_data')
+                self.mydb.upload_df_to_database(df=hand_record['hand_record'], table_name='hand_records_data')
+                self.mydb.upload_df_to_database(df=hand_record['hand_expect'], table_name='hand_possibility_data')
 
 
             else:
@@ -143,7 +149,7 @@ class ACBL_spider(scrapy.Spider):
                         'city': player['city'],
                         'state': player['state'],
                         'lifemaster': player['lifemaster'],
-                        'master_points': float(player['mp_total']),
+                        'master_points': float(player['mp_total']) if player['mp_total'] is not None else 0.0,
                         'bbo_username': player['bbo_username'],
                         'last_updated': datetime.strptime(data['sessions'][0]['game_date'], "%Y-%m-%d %H:%M:%S").date() #used to make sure only the latest is updated
                         })
@@ -196,7 +202,100 @@ class ACBL_spider(scrapy.Spider):
 
     def get_section_data(self,data):
     #collapsing the session and section data into one table
-        pass
+        section_detail_list = []
+        sessions = data['sessions']
+
+        for session_num in range(len(sessions)):
+            sections = sessions[session_num]['sections']
+            hand_record_id = sessions[session_num]['hand_record_id']
+            game_id = sessions[session_num]['event_id']
+            for section_num in range(len(sections)):
+                section_detail_list.append({
+                    'section_id': sections[section_num]['id'],
+                    'game_id': game_id,
+                    'session_id': sections[section_num]['session_id'], #usually the same as the game_id
+                    'hand_record': hand_record_id,
+                    'boards_per': sections[section_num]['boards_per_round'],
+                    'round_count': sections[section_num]['number_of_rounds'],
+                    'pair_count': len(sections[section_num]['pair_summaries'])    
+                }
+                )
+        print("Building Section Data")
+        df = pd.DataFrame(section_detail_list,columns=['section_id','game_id','session_id','hand_record','boards_per','round_count','pair_count'])
+        return df
+    
+    def get_hand_records(self,data):
+        hand_record_details = []
+        hand_expectation = []
+        sessions = data['sessions']
+        
+        for session_num in range(len(sessions)):
+            session_id = sessions[session_num]['id']
+            hand_records = sessions[session_num]['hand_records']
+            hand_record_id = sessions[session_num]['hand_record_id']
+            for hand_num in range(len(hand_records)):
+                hand_record_details.append({
+                    'id': hand_records[hand_num]['id'],
+                    'hand_record': hand_record_id,
+                    'board': hand_records[hand_num]['board'],
+                    'direction': 'N',
+                    'spades': hand_records[hand_num]['north_spades'],
+                    'hearts': hand_records[hand_num]['north_hearts'],
+                    'diamonds': hand_records[hand_num]['north_diamonds'],
+                    'clubs': hand_records[hand_num]['north_clubs'],
+                })
+                hand_record_details.append({
+                    'id': hand_records[hand_num]['id'],
+                    'hand_record': hand_record_id,
+                    'board': hand_records[hand_num]['board'],
+                    'direction': 'S',
+                    'spades': hand_records[hand_num]['south_spades'],
+                    'hearts': hand_records[hand_num]['south_hearts'],
+                    'diamonds': hand_records[hand_num]['south_diamonds'],
+                    'clubs': hand_records[hand_num]['south_clubs'],
+                })
+                hand_record_details.append({
+                    'id': hand_records[hand_num]['id'],
+                    'hand_record': hand_record_id,
+                    'board': hand_records[hand_num]['board'],
+                    'direction': 'E',
+                    'spades': hand_records[hand_num]['east_spades'],
+                    'hearts': hand_records[hand_num]['east_hearts'],
+                    'diamonds': hand_records[hand_num]['east_diamonds'],
+                    'clubs': hand_records[hand_num]['east_clubs'],
+                })
+                hand_record_details.append({
+                    'id': hand_records[hand_num]['id'],
+                    'hand_record': hand_record_id,
+                    'board': hand_records[hand_num]['board'],
+                    'direction': 'W',
+                    'spades': hand_records[hand_num]['west_spades'],
+                    'hearts': hand_records[hand_num]['west_hearts'],
+                    'diamonds': hand_records[hand_num]['west_diamonds'],
+                    'clubs': hand_records[hand_num]['west_clubs'],
+                })
+                hand_expectation.append({
+                    'id': hand_records[hand_num]['id'],
+                    'hand_record': hand_record_id,
+                    'board': hand_records[hand_num]['board'],
+                    'dealer':hand_records[hand_num]['dealer'],
+                    'vulnerability':hand_records[hand_num]['vulnerability'],
+                    'double_dummy_ew':hand_records[hand_num]['double_dummy_ew'],
+                    'double_dummy_ns':hand_records[hand_num]['double_dummy_ns'],
+                    'par':hand_records[hand_num]['par']
+
+                })
+
+        df_hr = pd.DataFrame(hand_record_details,columns=['id','hand_record','board','direction','spades','hearts','diamonds','clubs'])
+        #reformat to get better data, remove spaces and turn 10 into T so it is only one character
+        df_hr['spades'] = df_hr['spades'].str.replace('10', 'T').str.replace(' ', '')
+        df_hr['hearts'] = df_hr['hearts'].str.replace('10', 'T').str.replace(' ', '')
+        df_hr['diamonds'] = df_hr['diamonds'].str.replace('10', 'T').str.replace(' ', '')
+        df_hr['clubs'] = df_hr['clubs'].str.replace('10', 'T').str.replace(' ', '')
+
+
+        df_hexp = pd.DataFrame(hand_expectation, columns=['id','hand_record','board','dealer','vulnerability','double_dummy_ew','double_dummy_ns','par'])
+        return {'hand_record':df_hr,'hand_expect':df_hexp}
 
 if __name__ == "__main__":
     process = CrawlerProcess()
