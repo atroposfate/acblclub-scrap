@@ -87,7 +87,6 @@ class ACBL_spider(scrapy.Spider):
 
 
     def start_requests(self):
-        headers = {'User-Agent': 'Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16'}
         for url in self.start_urls:
             yield scrapy.Request(url, callback=self.parse, errback=self.errback_http, headers=self.headerlist[0])
 
