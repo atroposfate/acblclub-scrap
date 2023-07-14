@@ -390,6 +390,7 @@ class ACBL_spider(scrapy.Spider):
 
         df = pd.DataFrame(board_results_details,columns=['result_id','session_id','hand_record','section_id','board_id','board_num','round','table_num','ns_pair','ew_pair','ns_score','ew_score','contract','declarer','ew_match_points','ns_match_points','opening_lead','result','tricks_taken'])
         df['result'] = df['result'].str.replace('=', '0')
+        #shoudl be some nulls in results when there are weird adjustments
         df['ns_score'] = df['ns_score'].str.replace('PASS','0')
         df['ew_score'] = df['ew_score'].str.replace('PASS','0')
         return df
