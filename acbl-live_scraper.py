@@ -1,3 +1,8 @@
+'''A scrapper of the ACBL live club website and storing the data in a mariadb table for later use. Tables have to be created to match the scraper
+the credentials for the database are stored in a setting folder db.json, long term goal is to build some analyics on individual performance 
+This is only working for pairs and not team games'''
+
+
 import scrapy
 from scrapy.crawler import CrawlerProcess
 import re
@@ -6,6 +11,7 @@ import mariadb
 import os
 import pandas as pd
 from datetime import datetime
+import random
 
 
 
@@ -71,16 +77,33 @@ class DatabasePipeline():
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
-    start_urls = ['https://my.acbl.org/club-results/details/821956'] #starting with this just as a sample. Will move up a level
+    start_urls = ['https://my.acbl.org/club-results/261750'] #This is crawling through a couple clubs. Should be adding specific clubs to this
     mydb = DatabasePipeline()
+    headerlist = [
+        {'User-Agent': 'Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16'},
+        {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9'},
+        {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'},
+        ]
+
 
     def start_requests(self):
         headers = {'User-Agent': 'Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16'}
         for url in self.start_urls:
-            yield scrapy.Request(url, callback=self.parse, errback=self.errback_http, headers=headers)
+            yield scrapy.Request(url, callback=self.parse, errback=self.errback_http, headers=self.headerlist[0])
 
 
     def parse(self, response):
+        #Going through the clubs for only pairs
+        for row in response.xpath('//tr[td[text()="PAIRS"]]'):
+            # For each such row, find the "Results" link and follow it
+            headers = random.choice(self.headerlist)
+            result_link = row.xpath('.//a[contains(text(), "Results")]/@href').get()
+            if result_link:
+                yield response.follow(result_link, self.parse_result_page, headers=headers)
+
+
+
+    def parse_result_page(self, response):
         # Check if the response has a successful status code
         if response.status == 200:
 
@@ -100,13 +123,15 @@ class ACBL_spider(scrapy.Spider):
                 game_df = self.get_game_details(data)
                 section_df = self.get_section_data(data)
                 hand_record = self.get_hand_records(data) #this returns a dictionary for 2 tables
-                print(players_df)
+                hand_results = self.get_hand_results(data)
+                #overall_results = self.get_overall_results(data)
                 self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num', date_check=True)
                 self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
                 self.mydb.upload_df_to_database(df=game_df, table_name='game_data')
                 self.mydb.upload_df_to_database(df=section_df, table_name='section_data')
                 self.mydb.upload_df_to_database(df=hand_record['hand_record'], table_name='hand_records_data')
                 self.mydb.upload_df_to_database(df=hand_record['hand_expect'], table_name='hand_possibility_data')
+                self.mydb.upload_df_to_database(df=hand_results, table_name='hand_results_data')
 
 
             else:
@@ -214,6 +239,7 @@ class ACBL_spider(scrapy.Spider):
                     'section_id': sections[section_num]['id'],
                     'game_id': game_id,
                     'session_id': sections[section_num]['session_id'], #usually the same as the game_id
+                    'section_name': sections[section_num]['name'],
                     'hand_record': hand_record_id,
                     'boards_per': sections[section_num]['boards_per_round'],
                     'round_count': sections[section_num]['number_of_rounds'],
@@ -221,7 +247,7 @@ class ACBL_spider(scrapy.Spider):
                 }
                 )
         print("Building Section Data")
-        df = pd.DataFrame(section_detail_list,columns=['section_id','game_id','session_id','hand_record','boards_per','round_count','pair_count'])
+        df = pd.DataFrame(section_detail_list,columns=['section_id','game_id','session_id','section_name','hand_record','boards_per','round_count','pair_count'])
         return df
     
     def get_hand_records(self,data):
@@ -234,10 +260,16 @@ class ACBL_spider(scrapy.Spider):
             hand_records = sessions[session_num]['hand_records']
             hand_record_id = sessions[session_num]['hand_record_id']
             for hand_num in range(len(hand_records)):
+                board_num_id = None
+                #get board id from the board results
+                for board_num in range(len(sessions[session_num]['sections'][0]['boards'])):
+                    if hand_records[hand_num]['board'] == sessions[session_num]['sections'][0]['boards'][board_num]['board_number']:
+                        board_num_id = sessions[session_num]['sections'][0]['boards'][board_num]['id']
                 hand_record_details.append({
                     'id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
+                    'board_id_num': board_num_id,
                     'direction': 'N',
                     'spades': hand_records[hand_num]['north_spades'],
                     'hearts': hand_records[hand_num]['north_hearts'],
@@ -248,6 +280,7 @@ class ACBL_spider(scrapy.Spider):
                     'id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
+                    'board_id_num': board_num_id,
                     'direction': 'S',
                     'spades': hand_records[hand_num]['south_spades'],
                     'hearts': hand_records[hand_num]['south_hearts'],
@@ -258,6 +291,7 @@ class ACBL_spider(scrapy.Spider):
                     'id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
+                    'board_id_num': board_num_id,
                     'direction': 'E',
                     'spades': hand_records[hand_num]['east_spades'],
                     'hearts': hand_records[hand_num]['east_hearts'],
@@ -268,6 +302,7 @@ class ACBL_spider(scrapy.Spider):
                     'id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
+                    'board_id_num': board_num_id,
                     'direction': 'W',
                     'spades': hand_records[hand_num]['west_spades'],
                     'hearts': hand_records[hand_num]['west_hearts'],
@@ -278,6 +313,7 @@ class ACBL_spider(scrapy.Spider):
                     'id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
+                    'board_id_num': board_num_id,
                     'dealer':hand_records[hand_num]['dealer'],
                     'vulnerability':hand_records[hand_num]['vulnerability'],
                     'double_dummy_ew':hand_records[hand_num]['double_dummy_ew'],
@@ -286,16 +322,78 @@ class ACBL_spider(scrapy.Spider):
 
                 })
 
-        df_hr = pd.DataFrame(hand_record_details,columns=['id','hand_record','board','direction','spades','hearts','diamonds','clubs'])
+        df_hr = pd.DataFrame(hand_record_details,columns=['id','hand_record','board','board_id_num','direction','spades','hearts','diamonds','clubs'])
         #reformat to get better data, remove spaces and turn 10 into T so it is only one character
         df_hr['spades'] = df_hr['spades'].str.replace('10', 'T').str.replace(' ', '')
         df_hr['hearts'] = df_hr['hearts'].str.replace('10', 'T').str.replace(' ', '')
         df_hr['diamonds'] = df_hr['diamonds'].str.replace('10', 'T').str.replace(' ', '')
         df_hr['clubs'] = df_hr['clubs'].str.replace('10', 'T').str.replace(' ', '')
+        
+        df_hr['board_id_num'] = df_hr['board_id_num'].fillna(0)
 
-
-        df_hexp = pd.DataFrame(hand_expectation, columns=['id','hand_record','board','dealer','vulnerability','double_dummy_ew','double_dummy_ns','par'])
+        df_hexp = pd.DataFrame(hand_expectation, columns=['id','hand_record','board','board_id_num','dealer','vulnerability','double_dummy_ew','double_dummy_ns','par'])
+        df_hexp['board_id_num'] = df_hexp['board_id_num'].fillna(0)
         return {'hand_record':df_hr,'hand_expect':df_hexp}
+
+
+    def get_overall_results(self,data):
+        pass
+
+    def get_hand_results(self,data):
+        board_results_details = []
+        sessions = data['sessions']
+        add_pair_direction = False
+        
+        for session_num in range(len(sessions)):
+            session_id = sessions[session_num]['id']
+            hand_record_id = sessions[session_num]['hand_record_id']  
+            sections = sessions[session_num]['sections']
+            for section_num in range(len(sections)):
+                section_id = sections[section_num]['id']
+                boards = sections[section_num]['boards']
+                if sections[section_num]['pair_summaries'][0]['direction']:
+                    add_pair_direction = True
+                else:
+                    add_pair_direction = False
+                for board_num in range(len(boards)):
+                    results = boards[board_num]['board_results']
+                    board_num = boards[board_num]['board_number']
+                    for result_num in range(len(results)):
+                        if add_pair_direction:
+                            ns_pair = results[result_num]['ns_pair'] + 'NS'
+                            ew_pair = results[result_num]['ew_pair'] + 'EW'
+                        else:
+                            ns_pair = results[result_num]['ns_pair'] 
+                            ew_pair = results[result_num]['ew_pair']
+
+                        board_results_details.append({
+                            'result_id': results[result_num]['id'],
+                            'session_id':session_id,
+                            'hand_record':hand_record_id,
+                            'section_id':section_id,
+                            'board_id':results[result_num]['board_id'],
+                            'board_num': board_num,
+                            'round': results[result_num]['round_number'],
+                            'table_num': results[result_num]['table_number'],
+                            'ns_pair':ns_pair,
+                            'ew_pair':ew_pair,
+                            'ns_score':results[result_num]['ns_score'],
+                            'ew_score':results[result_num]['ew_score'],
+                            'contract':results[result_num]['contract'],
+                            'declarer':results[result_num]['declarer'],
+                            'ew_match_points':results[result_num]['ew_match_points'],
+                            'ns_match_points':results[result_num]['ns_match_points'],
+                            'opening_lead':results[result_num]['opening_lead'],
+                            'result':results[result_num]['result'],
+                            'tricks_taken':results[result_num]['tricks_taken']
+
+                        })
+
+        df = pd.DataFrame(board_results_details,columns=['result_id','session_id','hand_record','section_id','board_id','board_num','round','table_num','ns_pair','ew_pair','ns_score','ew_score','contract','declarer','ew_match_points','ns_match_points','opening_lead','result','tricks_taken'])
+        df['result'] = df['result'].str.replace('=', '0')
+        df['ns_score'] = df['ns_score'].str.replace('PASS','0')
+        df['ew_score'] = df['ew_score'].str.replace('PASS','0')
+        return df
 
 if __name__ == "__main__":
     process = CrawlerProcess()
