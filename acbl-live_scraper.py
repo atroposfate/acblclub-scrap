@@ -514,8 +514,8 @@ class ACBL_spider(scrapy.Spider):
 
 if __name__ == "__main__":
     
-    data = DatabasePipeline()
-    data.purge_db_contents() #don't want this in place all the time
+    #data = DatabasePipeline()
+    #data.purge_db_contents() #don't want this in place all the time
     process = CrawlerProcess()
     process.crawl(ACBL_spider)
     process.start()
