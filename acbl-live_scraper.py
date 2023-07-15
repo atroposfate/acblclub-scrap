@@ -12,6 +12,7 @@ import os
 import pandas as pd
 from datetime import datetime
 import random
+import numpy as np
 
 
 
@@ -19,6 +20,7 @@ class DatabasePipeline():
     def __init__(self):
         data_file = 'db.json'
         data_folder = 'settings'
+        app_folder = 'acblclub-scrap'
         file_path = os.path.join(data_folder,data_file) 
         with open(file_path,'r') as file:
             self.cred_data = json.load(file)
@@ -72,13 +74,28 @@ class DatabasePipeline():
                 print(e)
 
         self.conn.commit()
+    
+    def purge_db_contents(self):
+        table_list = ['player_data','club_data','game_data','section_data','hand_records_data','hand_possibility_data','hand_results_data','pair_results_data','strat_result_summary_data']
+        for table in table_list:
+            sql = f'DELETE FROM {table};'
+            self.cur.execute(sql)
+        
+        self.conn.commit()
 
+    def get_game_list(self):
+        sql = f'SELECT `game_id` FROM `game_data` GROUP BY `game_id`'
+        self.cur.execute(sql)
+        results = self.cur.fetchall()
+        game_id = [result[0] for result in results]
 
+        return game_id
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
-    start_urls = ['https://my.acbl.org/club-results/261750'] #This is crawling through a couple clubs. Should be adding specific clubs to this
+    start_urls = ['https://my.acbl.org/club-results/261750','https://my.acbl.org/club-results/275149','https://my.acbl.org/club-results/276287','https://my.acbl.org/club-results/273540','https://my.acbl.org/club-results/264820'] #This is crawling through a couple clubs. Should be adding specific clubs to this
     mydb = DatabasePipeline()
+    already_pulled = mydb.get_game_list()
     headerlist = [
         {'User-Agent': 'Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16'},
         {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9'},
@@ -93,11 +110,18 @@ class ACBL_spider(scrapy.Spider):
 
     def parse(self, response):
         #Going through the clubs for only pairs
+        
         for row in response.xpath('//tr[td[text()="PAIRS"]]'):
-            # For each such row, find the "Results" link and follow it
+            game_not_found = True
             headers = random.choice(self.headerlist)
             result_link = row.xpath('.//a[contains(text(), "Results")]/@href').get()
-            if result_link:
+            web_game_id = int(result_link.split('/')[-1])
+            for game in self.already_pulled:
+                if game == web_game_id:
+                    print("game "+ str(game) +" skipped")
+                    game_not_found = False
+
+            if result_link and game_not_found:
                 yield response.follow(result_link, self.parse_result_page, headers=headers)
 
 
@@ -123,7 +147,8 @@ class ACBL_spider(scrapy.Spider):
                 section_df = self.get_section_data(data)
                 hand_record = self.get_hand_records(data) #this returns a dictionary for 2 tables
                 hand_results = self.get_hand_results(data)
-                #overall_results = self.get_overall_results(data)
+                game_results = self.get_game_results(data)
+                score_summary = self.get_score_summary(data)
                 self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num', date_check=True)
                 self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
                 self.mydb.upload_df_to_database(df=game_df, table_name='game_data')
@@ -131,6 +156,8 @@ class ACBL_spider(scrapy.Spider):
                 self.mydb.upload_df_to_database(df=hand_record['hand_record'], table_name='hand_records_data')
                 self.mydb.upload_df_to_database(df=hand_record['hand_expect'], table_name='hand_possibility_data')
                 self.mydb.upload_df_to_database(df=hand_results, table_name='hand_results_data')
+                self.mydb.upload_df_to_database(df=game_results, table_name='pair_results_data')
+                self.mydb.upload_df_to_database(df=score_summary, table_name='strat_result_summary_data')
 
 
             else:
@@ -329,14 +356,77 @@ class ACBL_spider(scrapy.Spider):
         df_hr['clubs'] = df_hr['clubs'].str.replace('10', 'T').str.replace(' ', '')
         
         df_hr['board_id_num'] = df_hr['board_id_num'].fillna(0)
+        df_hr = df_hr.dropna(subset=['hand_record'])
+        df_hr = df_hr[df_hr['hand_record'] != 'SHUFFLE']
 
         df_hexp = pd.DataFrame(hand_expectation, columns=['id','hand_record','board','board_id_num','dealer','vulnerability','double_dummy_ew','double_dummy_ns','par'])
         df_hexp['board_id_num'] = df_hexp['board_id_num'].fillna(0)
+        df_hexp = df_hexp.dropna(subset=['hand_record'])
+        df_hexp = df_hexp[df_hexp['hand_record'] != 'SHUFFLE']
         return {'hand_record':df_hr,'hand_expect':df_hexp}
 
 
-    def get_overall_results(self,data):
-        pass
+    def get_game_results(self,data):
+        game_results_details = []
+        sessions = data['sessions']
+        add_pair_direction = False
+
+        for session_num in range(len(sessions)):
+            session_id = sessions[session_num]['id']
+            sections = sessions[session_num]['sections']
+            for section_num in range(len(sections)):
+                section_id = sections[section_num]['id']
+                pair_summaries = sections[section_num]['pair_summaries']
+                if sections[section_num]['pair_summaries'][0]['direction']:
+                    add_pair_direction = True
+                else:
+                    add_pair_direction = False
+                for pair_num in range(len(pair_summaries)):
+                    if add_pair_direction:
+                        pair = pair_summaries[pair_num]['pair_number'] + pair_summaries[pair_num]['direction']
+                    else:
+                        pair = pair_summaries[pair_num]['pair_number']
+                    pair_summary_id = pair_summaries[pair_num]['id']
+                    score = pair_summaries[pair_num]['score']
+                    percentage = pair_summaries[pair_num]['percentage']
+                    players = pair_summaries[pair_num]['players']
+                    for player_num in range(len(players)):
+                        direction = None
+                        if len(players[player_num]['awards_score'])> 0:
+                            mp = players[player_num]['awards_score'][0]['total']
+                        else:
+                            mp = None
+                        
+                        #set default direction for the pair
+                        if add_pair_direction:
+                            if pair_summaries[pair_num]['direction'] == 'NS':
+                                if pair_num == 0:
+                                    direction = 'N'
+                                else:
+                                    direction = 'S'
+                            else:
+                                if pair_num != 0:
+                                    direction = 'E'
+                                else:
+                                    direction = 'W'
+                        else:
+                            direction = None
+
+                        game_results_details.append({
+                            'pair_id_num': pair_summary_id,
+                            'session_id': session_id,
+                            'section_id':section_id,
+                            'acbl_num': players[player_num]['id_number'],
+                            'pair': pair,
+                            'score': score,
+                            'percentage': percentage,
+                            'mp_earned': mp,
+                            'direction': direction
+                        })
+        df = pd.DataFrame(game_results_details,columns=['pair_id_num','session_id','section_id','acbl_num','pair','score','percentage','mp_earned','direction'])
+        #add some random easy identifiable numbers if there is no acbl number
+        df['acbl_num'].fillna(pd.Series(np.random.randint(1000, 10000, size=len(df.index))), inplace=True)
+        return df
 
     def get_hand_results(self,data):
         board_results_details = []
@@ -390,12 +480,42 @@ class ACBL_spider(scrapy.Spider):
 
         df = pd.DataFrame(board_results_details,columns=['result_id','session_id','hand_record','section_id','board_id','board_num','round','table_num','ns_pair','ew_pair','ns_score','ew_score','contract','declarer','ew_match_points','ns_match_points','opening_lead','result','tricks_taken'])
         df['result'] = df['result'].str.replace('=', '0')
+        #hasn't been tested
+        df.replace('', None, inplace=True)
         #shoudl be some nulls in results when there are weird adjustments
         df['ns_score'] = df['ns_score'].str.replace('PASS','0')
         df['ew_score'] = df['ew_score'].str.replace('PASS','0')
+        df = df.dropna(subset=['round','hand_record'])
+        df = df[df['hand_record'] != 'SHUFFLE']
         return df
 
+    def get_score_summary(self,data):
+        score_results_details = []
+        sessions = data['sessions']
+
+        for session_num in range(len(sessions)):
+            sections = sessions[session_num]['sections']
+            for section_num in range(len(sections)):
+                pair_summaries = sections[section_num]['pair_summaries']
+                for pair_num in range(len(pair_summaries)):
+                    pair_summary_id = pair_summaries[pair_num]['id']
+                    strats = pair_summaries[pair_num]['strat_place']
+                    for strat_num in range(len(strats)):
+                        score_results_details.append({
+                            'strat_id':strats[strat_num]['id'],
+                            'pair_summary_id':pair_summary_id,
+                            'strat_num':strats[strat_num]['strat_number'],
+                            'rank':strats[strat_num]['rank'],
+                            'type':strats[strat_num]['type']
+                        })
+        df = pd.DataFrame(score_results_details,columns=['strat_id','pair_summary_id','strat_num','rank','type'])
+        return df
+
+
 if __name__ == "__main__":
+    
+    data = DatabasePipeline()
+    data.purge_db_contents() #don't want this in place all the time
     process = CrawlerProcess()
     process.crawl(ACBL_spider)
     process.start()
