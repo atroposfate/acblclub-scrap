@@ -17,6 +17,9 @@ import numpy as np
 
 
 class DatabasePipeline():
+
+    table_list = ('player_data','club_data','game_data','section_data','hand_records_data','hand_possibility_data','hand_results_data','pair_results_data','strat_result_summary_data')
+    
     def __init__(self):
         data_file = 'db.json'
         data_folder = 'settings'
@@ -39,6 +42,13 @@ class DatabasePipeline():
                 self.cur = self.conn.cursor()
             except mariadb.Error as e:
                 print(f"Error connecting to MariaDB")
+        
+        for table in self.table_list:
+            if table_exists(table):
+                continue
+            else:
+                print('Builing non-existant table' + table)
+                build_table(table)
 
     def upload_df_to_database(self, df, table_name, prim_key=None,date_check=False):
 
@@ -76,12 +86,25 @@ class DatabasePipeline():
         self.conn.commit()
     
     def purge_db_contents(self):
-        table_list = ['player_data','club_data','game_data','section_data','hand_records_data','hand_possibility_data','hand_results_data','pair_results_data','strat_result_summary_data']
-        for table in table_list:
+        for table in self.table_list:
             sql = f'DELETE FROM {table};'
             self.cur.execute(sql)
         
         self.conn.commit()
+
+    def table_exists(table_name):
+
+        self.cur.execute(f'''
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_name = '{table_name}'
+        ''')
+        if cursor.fetchone()[0] == 1:
+            cursor.close()
+            return True
+
+        return False
+
 
     def get_game_list(self):
         sql = f'SELECT `game_id` FROM `game_data` GROUP BY `game_id`'
@@ -90,6 +113,40 @@ class DatabasePipeline():
         game_id = [result[0] for result in results]
 
         return game_id
+
+    def build_table(table_name):
+        sql = f'CREATE TABLE IF NOT EXISTS {table_name}'
+
+        if table_name == 'club_data':
+            sql += ' (`club_num` int(7) NOT NULL,`club_name` varchar(45) NOT NULL,`unit_num` smallint(6) NOT NULL,`district_num` smallint(6) NOT NULL,`manager_num` int(10) DEFAULT NULL,`alias` varchar(10) DEFAULT NULL, PRIMARY KEY (`emp_no`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        elif table_name == 'game_data':
+            sql += ' (`game_id` int(7) NOT NULL,`game_name` varchar(45) DEFAULT NULL,`game_rating` tinyint(4) NOT NULL,`club_num` int(7) NOT NULL,`game_type` varchar(15) NOT NULL,`scoring_method` varchar(15) NOT NULL,`start_date` date NOT NULL,`end_date` date DEFAULT NULL,`session_cnt` tinyint(4) NOT NULL,`section_cnt` tinyint(4) NOT NULL, PRIMARY KEY (`game_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        elif table_name == 'hand_possibility_data':
+            sql += ' (`id` int(11) NOT NULL,`hand_record` varchar(10) NOT NULL,`board` tinyint(4) NOT NULL,`board_id_num` int(15) DEFAULT NULL,`dealer` varchar(1) NOT NULL,`vulnerability` varchar(10) NOT NULL,`double_dummy_ew` varchar(40) NOT NULL,`double_dummy_ns` varchar(45) NOT NULL,`par` varchar(40) NOT NULL,PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        elif table_name == 'hand_records_data':
+            sql += ' (`id` int(11) NOT NULL,`hand_record` varchar(10) NOT NULL,`board` tinyint(4) NOT NULL,`board_id_num` int(15) DEFAULT NULL,`direction` varchar(1) NOT NULL,`spades` varchar(13) NOT NULL,`hearts` varchar(13) NOT NULL,`diamonds` varchar(13) NOT NULL,`clubs` varchar(13) NOT NULL,PRIMARY KEY (`id`,`direction`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        elif table_name == 'hand_results_data':
+            sql += ' (`result_id` int(15) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(9) NOT NULL,`section_id` int(7) NOT NULL,`board_id` int(15) NOT NULL,`board_num` tinyint(4) NOT NULL,`round` tinyint(4) NOT NULL,`table_num` tinyint(4) NOT NULL,`ns_pair` varchar(5) NOT NULL,`ew_pair` varchar(5) NOT NULL,`ns_score` int(6) NOT NULL,`ew_score` int(6) NOT NULL,`contract` varchar(6) DEFAULT NULL,`declarer` varchar(1) DEFAULT NULL,`ew_match_points` decimal(6,2) NOT NULL,`ns_match_points` decimal(6,2) NOT NULL,`opening_lead` varchar(4) DEFAULT NULL,`result` tinyint(4) DEFAULT NULL,`tricks_taken` tinyint(4) DEFAULT NULL,PRIMARY KEY (`result_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        elif table_name == 'pair_results_data':
+            sql += ' (pair_id_num int(15) NOT NULL,session_id int(7) NOT NULL,section_id int(7) NOT NULL,acbl_num int(10) NOT NULL,pair varchar(6) NOT NULL,score decimal(6,2) NOT NULL,percentage decimal(6,2) NOT NULL,mp_earned decimal(5,2) DEFAULT NULL,direction varchar(2) DEFAULT NULL,PRIMARY KEY (pair_id_num,acbl_num)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        elif table_name == 'player_data':
+            sql += ' (`acbl_num` int(10) NOT NULL,`name` varchar(25) DEFAULT NULL,`city` varchar(20) DEFAULT NULL,`state` varchar(20) DEFAULT NULL,`master_points` float DEFAULT NULL,`bbo_username` varchar(20) DEFAULT NULL,`lifemaster` tinyint(1) NOT NULL,`last_updated` date NOT NULL,PRIMARY KEY (`acbl_num`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        elif table_name == 'section_data':
+            sql += '(`section_id` int(7) NOT NULL,`section_name` varchar(10) DEFAULT NULL,`game_id` int(7) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(10) DEFAULT NULL,`boards_per` tinyint(4) DEFAULT NULL,`round_count` tinyint(4) NOT NULL,`pair_count` smallint(6) NOT NULL, PRIMARY KEY (`section_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        elif table_name == 'strat_result_summary_data':
+            sql += ' (`strat_id` int(15) NOT NULL,`pair_summary_id` int(15) NOT NULL,`strat_num` smallint(6) NOT NULL,`rank` tinyint(4) DEFAULT NULL,`type` varchar(10) DEFAULT NULL,PRIMARY KEY (`strat_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+        else:
+            print('Table has no definitiion')
+            sql = None
+        
+        try:
+            if sql:
+                self.cur.execute(sql)
+            else:
+                print('SQL is NoneType')
+        except Exception as e:
+            print(e)
+
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
