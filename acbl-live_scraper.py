@@ -184,9 +184,9 @@ class ACBL_spider(scrapy.Spider):
             headers = random.choice(self.headerlist)
             result_link = row.xpath('.//a[contains(text(), "Results")]/@href').get()
             web_game_id = int(result_link.split('/')[-1])
+            #find duplicate games and skip the work of finding it
             for game in self.already_pulled:
                 if game == web_game_id:
-                    print("game "+ str(game) +" skipped")
                     game_not_found = False
 
             if result_link and game_not_found:
@@ -207,26 +207,29 @@ class ACBL_spider(scrapy.Spider):
                 data = json.loads(script_code)
 
                 #scub for the necessary data
-                id_value = data.get('id')
+                id_value = int(data.get('id'))
+                for game in self.already_pulled:
+                    #Another game skip check as sometimes the end of the URL isn't the game number
+                    if id_value == game:
 
-                players_df = self.get_players(data)
-                club_df = self.get_club(data)
-                game_df = self.get_game_details(data)
-                section_df = self.get_section_data(data)
-                hand_record = self.get_hand_records(data) #this returns a dictionary for 2 tables
-                hand_results = self.get_hand_results(data)
-                game_results = self.get_game_results(data)
-                score_summary = self.get_score_summary(data)
-                self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num', date_check=True)
-                self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
-                self.mydb.upload_df_to_database(df=game_df, table_name='game_data')
-                self.mydb.upload_df_to_database(df=section_df, table_name='section_data')
-                self.mydb.upload_df_to_database(df=hand_record['hand_record'], table_name='hand_records_data')
-                self.mydb.upload_df_to_database(df=hand_record['hand_expect'], table_name='hand_possibility_data')
-                self.mydb.upload_df_to_database(df=hand_results, table_name='hand_results_data')
-                self.mydb.upload_df_to_database(df=game_results, table_name='pair_results_data')
-                self.mydb.upload_df_to_database(df=score_summary, table_name='strat_result_summary_data')
-
+                        players_df = self.get_players(data)
+                        club_df = self.get_club(data)
+                        game_df = self.get_game_details(data)
+                        section_df = self.get_section_data(data)
+                        hand_record = self.get_hand_records(data) #this returns a dictionary for 2 tables
+                        hand_results = self.get_hand_results(data)
+                        game_results = self.get_game_results(data)
+                        score_summary = self.get_score_summary(data)
+                        self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num', date_check=True)
+                        self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
+                        self.mydb.upload_df_to_database(df=game_df, table_name='game_data')
+                        self.mydb.upload_df_to_database(df=section_df, table_name='section_data')
+                        self.mydb.upload_df_to_database(df=hand_record['hand_record'], table_name='hand_records_data')
+                        self.mydb.upload_df_to_database(df=hand_record['hand_expect'], table_name='hand_possibility_data')
+                        self.mydb.upload_df_to_database(df=hand_results, table_name='hand_results_data')
+                        self.mydb.upload_df_to_database(df=game_results, table_name='pair_results_data')
+                        self.mydb.upload_df_to_database(df=score_summary, table_name='strat_result_summary_data')
+                
 
             else:
                 self.logger.error("Unable to find 'data' variable in the response")
