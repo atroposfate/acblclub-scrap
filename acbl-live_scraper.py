@@ -55,11 +55,11 @@ class DatabasePipeline():
                 print(f"Error connecting to MariaDB")
         
         for table in self.table_list:
-            if table_exists(table):
+            if self.table_exists(table):
                 continue
             else:
                 print('Builing non-existant table' + table)
-                build_table(table)
+                self.build_table(table)
 
     def upload_df_to_database(self, df, table_name, prim_key=None,date_check=False):
 
@@ -103,15 +103,14 @@ class DatabasePipeline():
         
         self.conn.commit()
 
-    def table_exists(table_name):
+    def table_exists(self,table_name):
 
         self.cur.execute(f'''
             SELECT COUNT(*)
             FROM information_schema.tables
             WHERE table_name = '{table_name}'
         ''')
-        if cursor.fetchone()[0] == 1:
-            cursor.close()
+        if self.cur.fetchone()[0] == 1:
             return True
 
         return False
@@ -121,11 +120,11 @@ class DatabasePipeline():
         sql = f'SELECT `game_id` FROM `game_data` GROUP BY `game_id`'
         self.cur.execute(sql)
         results = self.cur.fetchall()
-        game_id = [result[0] for result in results]
+        game_id = [int(result[0]) for result in results]
 
         return game_id
 
-    def build_table(table_name):
+    def build_table(self,table_name):
         sql = f'CREATE TABLE IF NOT EXISTS {table_name}'
 
         if table_name == 'club_data':
