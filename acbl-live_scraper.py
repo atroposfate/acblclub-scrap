@@ -1,5 +1,15 @@
-'''A scrapper of the ACBL live club website and storing the data in a mariadb table for later use. Tables have to be created to match the scraper
-the credentials for the database are stored in a setting folder db.json, long term goal is to build some analyics on individual performance 
+'''A scrapper of the ACBL live club website and storing the data in a mariadb table for later use. Tables will be created if tehy don't exist now
+The credentials and database created for this project have to be in the settings folder in a file called db.json,
+this is the structure of the db.json:
+ {
+    "system":"mariadb",
+    "user":"username",
+    "password":"password",
+    "host":"xxx.xxx.xxx.xxx",
+    "port":3306,
+    "database":"bridge-results"
+}
+long term goal is to build some analyics on individual performance 
 This is only working for pairs and not team games'''
 
 
@@ -150,6 +160,7 @@ class DatabasePipeline():
 
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
+    #go to the acbl live clubs site and find the clubs you want to follow and place their ID here
     start_urls = ['https://my.acbl.org/club-results/261750','https://my.acbl.org/club-results/275149','https://my.acbl.org/club-results/276287','https://my.acbl.org/club-results/273540','https://my.acbl.org/club-results/264820'] #This is crawling through a couple clubs. Should be adding specific clubs to this
     mydb = DatabasePipeline()
     already_pulled = mydb.get_game_list()
