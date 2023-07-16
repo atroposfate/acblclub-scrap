@@ -1,4 +1,4 @@
-'''A scrapper of the ACBL live club website and storing the data in a mariadb table for later use. Tables will be created if tehy don't exist now
+'''A scrapper of the ACBL live club website and storing the data in a mariadb table for later use. Tables will be created if they don't exist
 The credentials and database created for this project have to be in the settings folder in a file called db.json,
 this is the structure of the db.json:
  {
@@ -9,8 +9,9 @@ this is the structure of the db.json:
     "port":3306,
     "database":"bridge-results"
 }
-long term goal is to build some analyics on individual performance 
-This is only working for pairs and not team games'''
+The hope is to use this do some analytics on the actual results and database
+
+This is only working for pairs and not team games and the tag on the ACBL website expects it to be flagged as 'PAIRS'''
 
 
 import scrapy
