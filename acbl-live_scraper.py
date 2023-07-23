@@ -24,6 +24,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import random
 import numpy as np
+import sys
 
 
 
@@ -130,7 +131,7 @@ class DatabasePipeline():
         if table_name == 'club_data':
             sql += ' (`club_num` int(7) NOT NULL,`club_name` varchar(45) NOT NULL,`unit_num` smallint(6) NOT NULL,`district_num` smallint(6) NOT NULL,`manager_num` int(10) DEFAULT NULL,`alias` varchar(10) DEFAULT NULL, PRIMARY KEY (`emp_no`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'game_data':
-            sql += ' (`game_id` int(7) NOT NULL,`game_name` varchar(90) DEFAULT NULL,`game_rating` tinyint(4) NOT NULL,`club_num` int(7) NOT NULL,`game_type` varchar(15) NOT NULL,`scoring_method` varchar(15) NOT NULL,`start_date` date NOT NULL,`end_date` date DEFAULT NULL,`session_cnt` tinyint(4) NOT NULL,`section_cnt` tinyint(4) NOT NULL, PRIMARY KEY (`game_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += ' (`game_id` int(7) NOT NULL,`game_name` varchar(90) DEFAULT NULL,`game_rating` tinyint(4) NOT NULL,`club_num` int(7) NOT NULL,`game_type` varchar(30) NOT NULL,`scoring_method` varchar(15) NOT NULL,`start_date` date NOT NULL,`end_date` date DEFAULT NULL,`session_cnt` tinyint(4) NOT NULL,`section_cnt` tinyint(4) NOT NULL, PRIMARY KEY (`game_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'hand_possibility_data':
             sql += ' (`hand_id` int(11) NOT NULL,`hand_record` varchar(10) NOT NULL,`board` tinyint(4) NOT NULL,`board_id_num` int(15) DEFAULT NULL,`dealer` varchar(1) NOT NULL,`vulnerability` varchar(10) NOT NULL,`double_dummy_ew` varchar(40) NOT NULL,`double_dummy_ns` varchar(45) NOT NULL,`par` varchar(40) NOT NULL,PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'hand_records_data':
@@ -604,9 +605,18 @@ class ACBL_spider(scrapy.Spider):
 
 
 if __name__ == "__main__":
-    
-    #data = DatabasePipeline()
-    #data.purge_db_contents() #don't want this in place all the time
+    date_limit = False
+    delete = False
+
+    if '--date_limit' in sys.argv:
+        date_limit = True
+    if '--rebuild' in sys.argv:
+        delete = True
+
+    #purge if the argument was passed
+    if delete:
+        data = DatabasePipeline()
+        data.purge_db_contents() #don't want this in place all the time
     process = CrawlerProcess()
-    process.crawl(ACBL_spider,date_limit=True)
+    process.crawl(ACBL_spider,date_limit=date_limit)
     process.start()
