@@ -21,7 +21,7 @@ import json
 import mariadb
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import numpy as np
 
@@ -169,7 +169,12 @@ class ACBL_spider(scrapy.Spider):
         {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9'},
         {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'},
         ]
+    max_data_age = 14
+    current_date = datetime.now()
 
+    def __init__(self, date_limit=False, *args, **kwargs):
+        super(ACBL_spider, self).__init__(*args, **kwargs)
+        self.date_limit = date_limit
 
     def start_requests(self):
         for url in self.start_urls:
@@ -180,6 +185,14 @@ class ACBL_spider(scrapy.Spider):
         #Going through the clubs for only pairs
         
         for row in response.xpath('//tr[td[text()="PAIRS"]]'):
+            #adding a check for date limit so it doesn't come through everything again
+            if self.date_limit:
+                date_str = row.xpath('td/@data-sort').get()
+                event_date = datetime.fromtimestamp(int(date_str))
+                age_in_days = (self.current_date - event_date).days
+                if age_in_days > self.max_data_age:
+                    print("found old record "+ str(age_in_days))
+                    break
             game_not_found = True
             headers = random.choice(self.headerlist)
             result_link = row.xpath('.//a[contains(text(), "Results")]/@href').get()
@@ -592,8 +605,8 @@ class ACBL_spider(scrapy.Spider):
 
 if __name__ == "__main__":
     
-    data = DatabasePipeline()
-    data.purge_db_contents() #don't want this in place all the time
+    #data = DatabasePipeline()
+    #data.purge_db_contents() #don't want this in place all the time
     process = CrawlerProcess()
-    process.crawl(ACBL_spider)
+    process.crawl(ACBL_spider,date_limit=True)
     process.start()
