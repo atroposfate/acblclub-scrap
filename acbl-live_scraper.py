@@ -162,7 +162,7 @@ class DatabasePipeline():
 class ACBL_spider(scrapy.Spider):
     name = 'acbl_club_spider'
     #go to the acbl live clubs site and find the clubs you want to follow and place their ID here
-    start_urls = ['https://my.acbl.org/club-results/261750','https://my.acbl.org/club-results/275149','https://my.acbl.org/club-results/276287','https://my.acbl.org/club-results/273540','https://my.acbl.org/club-results/264820'] #This is crawling through a couple clubs. Should be adding specific clubs to this
+    start_urls = ['https://my.acbl.org/club-results/261750','https://my.acbl.org/club-results/275149','https://my.acbl.org/club-results/276287','https://my.acbl.org/club-results/273540','https://my.acbl.org/club-results/264820'] 
     mydb = DatabasePipeline()
     already_pulled = mydb.get_game_list()
     headerlist = [
@@ -616,7 +616,7 @@ if __name__ == "__main__":
     #purge if the argument was passed
     if delete:
         data = DatabasePipeline()
-        data.purge_db_contents() #don't want this in place all the time
+        data.purge_db_contents()
     process = CrawlerProcess()
     process.crawl(ACBL_spider,date_limit=date_limit)
     process.start()
