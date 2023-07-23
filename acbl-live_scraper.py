@@ -503,6 +503,7 @@ class ACBL_spider(scrapy.Spider):
                         })
         df = pd.DataFrame(game_results_details,columns=['pair_id_num','session_id','section_id','acbl_num','pair','score','percentage','mp_earned','direction'])
         #add some random easy identifiable numbers if there is no acbl number
+        df['percentage'] = df['percentage'].fillna(0)
         return df
 
     def get_hand_results(self,data):
