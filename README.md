@@ -14,3 +14,7 @@ the project needs a db.json file in the settings folder and contain these column
 
 In the Crawler you will need to update the club URLs "start_urls". Replace the clubs in there with the url from the club you are interested in in the acbl live website. They are currently set for a few
 in Calgary Alberta
+
+The program can be run with a couple paramaters 
+ --rebuild    deletes all databases and reruns the crawler
+ --date_limit   prevents it from grabbing data that is older than 14 days, if the data has been stored already no sense hammering the website again
