@@ -144,7 +144,7 @@ class DatabasePipeline():
         elif table_name == 'section_data':
             sql += '(`section_id` int(7) NOT NULL,`section_name` varchar(10) DEFAULT NULL,`game_id` int(7) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(10) DEFAULT NULL,`boards_per` tinyint(4) DEFAULT NULL,`round_count` tinyint(4) NOT NULL,`pair_count` smallint(6) NOT NULL, PRIMARY KEY (`section_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'strat_result_summary_data':
-            sql += ' (`strat_id` int(15) NOT NULL,`pair_summary_id` int(15) NOT NULL,`strat_num` smallint(6) NOT NULL,`rank` tinyint(4) DEFAULT NULL,`strat_type` varchar(10) DEFAULT NULL,PRIMARY KEY (`strat_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += ' (`strat_id` int(15) NOT NULL,`pair_id_num` int(15) NOT NULL,`strat_num` smallint(6) NOT NULL,`rank` tinyint(4) DEFAULT NULL,`strat_type` varchar(10) DEFAULT NULL,PRIMARY KEY (`strat_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         else:
             print('Table has no definitiion')
             sql = None
@@ -574,12 +574,12 @@ class ACBL_spider(scrapy.Spider):
                     for strat_num in range(len(strats)):
                         score_results_details.append({
                             'strat_id':strats[strat_num]['id'],
-                            'pair_summary_id':pair_summary_id,
+                            'pair_id_num':pair_summary_id,
                             'strat_num':strats[strat_num]['strat_number'],
                             'rank':strats[strat_num]['rank'],
                             'strat_type':strats[strat_num]['type']
                         })
-        df = pd.DataFrame(score_results_details,columns=['strat_id','pair_summary_id','strat_num','rank','strat_type'])
+        df = pd.DataFrame(score_results_details,columns=['strat_id','pair_id_num','strat_num','rank','strat_type'])
         return df
 
 
