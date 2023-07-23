@@ -136,7 +136,7 @@ class DatabasePipeline():
         elif table_name == 'hand_records_data':
             sql += ' (`id` int(11) NOT NULL,`hand_record` varchar(10) NOT NULL,`board` tinyint(4) NOT NULL,`board_id_num` int(15) DEFAULT NULL,`direction` varchar(1) NOT NULL,`spades` varchar(13) NOT NULL,`hearts` varchar(13) NOT NULL,`diamonds` varchar(13) NOT NULL,`clubs` varchar(13) NOT NULL,PRIMARY KEY (`id`,`direction`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'hand_results_data':
-            sql += ' (`result_id` int(15) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(9) NOT NULL,`section_id` int(7) NOT NULL,`board_id` int(15) NOT NULL,`board_num` tinyint(4) NOT NULL,`round` tinyint(4) NOT NULL,`table_num` tinyint(4) NOT NULL,`ns_pair` varchar(5) NOT NULL,`ew_pair` varchar(5) NOT NULL,`ns_score` int(6) NOT NULL,`ew_score` int(6) NOT NULL,`contract` varchar(6) DEFAULT NULL,`declarer` varchar(1) DEFAULT NULL,`ew_match_points` decimal(6,2) NOT NULL,`ns_match_points` decimal(6,2) NOT NULL,`opening_lead` varchar(4) DEFAULT NULL,`result` tinyint(4) DEFAULT NULL,`tricks_taken` tinyint(4) DEFAULT NULL,PRIMARY KEY (`result_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += ' (`result_id` int(15) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(9) NOT NULL,`section_id` int(7) NOT NULL,`board_id` int(15) NOT NULL,`board_num` tinyint(4) NOT NULL,`round_num` tinyint(4) NOT NULL,`table_num` tinyint(4) NOT NULL,`ns_pair` varchar(5) NOT NULL,`ew_pair` varchar(5) NOT NULL,`ns_score` int(6) NOT NULL,`ew_score` int(6) NOT NULL,`contract` varchar(6) DEFAULT NULL,`declarer` varchar(1) DEFAULT NULL,`ew_match_points` decimal(6,2) NOT NULL,`ns_match_points` decimal(6,2) NOT NULL,`opening_lead` varchar(4) DEFAULT NULL,`result` tinyint(4) DEFAULT NULL,`tricks_taken` tinyint(4) DEFAULT NULL,PRIMARY KEY (`result_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'pair_results_data':
             sql += ' (pair_id_num int(15) NOT NULL,session_id int(7) NOT NULL,section_id int(7) NOT NULL,acbl_num int(10) NOT NULL,pair varchar(6) NOT NULL,score decimal(6,2) NOT NULL,percentage decimal(6,2) NOT NULL,mp_earned decimal(5,2) DEFAULT NULL,direction varchar(2) DEFAULT NULL,PRIMARY KEY (pair_id_num,acbl_num)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'player_data':
@@ -144,7 +144,7 @@ class DatabasePipeline():
         elif table_name == 'section_data':
             sql += '(`section_id` int(7) NOT NULL,`section_name` varchar(10) DEFAULT NULL,`game_id` int(7) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(10) DEFAULT NULL,`boards_per` tinyint(4) DEFAULT NULL,`round_count` tinyint(4) NOT NULL,`pair_count` smallint(6) NOT NULL, PRIMARY KEY (`section_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'strat_result_summary_data':
-            sql += ' (`strat_id` int(15) NOT NULL,`pair_summary_id` int(15) NOT NULL,`strat_num` smallint(6) NOT NULL,`rank` tinyint(4) DEFAULT NULL,`type` varchar(10) DEFAULT NULL,PRIMARY KEY (`strat_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += ' (`strat_id` int(15) NOT NULL,`pair_summary_id` int(15) NOT NULL,`strat_num` smallint(6) NOT NULL,`rank` tinyint(4) DEFAULT NULL,`strat_type` varchar(10) DEFAULT NULL,PRIMARY KEY (`strat_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         else:
             print('Table has no definitiion')
             sql = None
@@ -533,7 +533,7 @@ class ACBL_spider(scrapy.Spider):
                             'section_id':section_id,
                             'board_id':results[result_num]['board_id'],
                             'board_num': board_num,
-                            'round': results[result_num]['round_number'],
+                            'round_num': results[result_num]['round_number'],
                             'table_num': results[result_num]['table_number'],
                             'ns_pair':ns_pair,
                             'ew_pair':ew_pair,
@@ -549,7 +549,7 @@ class ACBL_spider(scrapy.Spider):
 
                         })
 
-        df = pd.DataFrame(board_results_details,columns=['result_id','session_id','hand_record','section_id','board_id','board_num','round','table_num','ns_pair','ew_pair','ns_score','ew_score','contract','declarer','ew_match_points','ns_match_points','opening_lead','result','tricks_taken'])
+        df = pd.DataFrame(board_results_details,columns=['result_id','session_id','hand_record','section_id','board_id','board_num','round_num','table_num','ns_pair','ew_pair','ns_score','ew_score','contract','declarer','ew_match_points','ns_match_points','opening_lead','result','tricks_taken'])
         df['result'] = df['result'].str.replace('=', '0')
         #hasn't been tested
         df.replace('', None, inplace=True)
@@ -577,9 +577,9 @@ class ACBL_spider(scrapy.Spider):
                             'pair_summary_id':pair_summary_id,
                             'strat_num':strats[strat_num]['strat_number'],
                             'rank':strats[strat_num]['rank'],
-                            'type':strats[strat_num]['type']
+                            'strat_type':strats[strat_num]['type']
                         })
-        df = pd.DataFrame(score_results_details,columns=['strat_id','pair_summary_id','strat_num','rank','type'])
+        df = pd.DataFrame(score_results_details,columns=['strat_id','pair_summary_id','strat_num','rank','strat_type'])
         return df
 
 
