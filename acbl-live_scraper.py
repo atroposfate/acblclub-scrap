@@ -58,7 +58,7 @@ class DatabasePipeline():
             if self.table_exists(table):
                 continue
             else:
-                print('Builing non-existant table' + table)
+                print('Building non-existant table' + table)
                 self.build_table(table)
 
     def upload_df_to_database(self, df, table_name, prim_key=None,date_check=False):
@@ -94,7 +94,7 @@ class DatabasePipeline():
                 #trying to account for the duplicate records
                 print(e)
 
-        self.conn.commit()
+            self.conn.commit()
     
     def purge_db_contents(self):
         for table in self.table_list:
@@ -130,19 +130,19 @@ class DatabasePipeline():
         if table_name == 'club_data':
             sql += ' (`club_num` int(7) NOT NULL,`club_name` varchar(45) NOT NULL,`unit_num` smallint(6) NOT NULL,`district_num` smallint(6) NOT NULL,`manager_num` int(10) DEFAULT NULL,`alias` varchar(10) DEFAULT NULL, PRIMARY KEY (`emp_no`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'game_data':
-            sql += ' (`game_id` int(7) NOT NULL,`game_name` varchar(45) DEFAULT NULL,`game_rating` tinyint(4) NOT NULL,`club_num` int(7) NOT NULL,`game_type` varchar(15) NOT NULL,`scoring_method` varchar(15) NOT NULL,`start_date` date NOT NULL,`end_date` date DEFAULT NULL,`session_cnt` tinyint(4) NOT NULL,`section_cnt` tinyint(4) NOT NULL, PRIMARY KEY (`game_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += ' (`game_id` int(7) NOT NULL,`game_name` varchar(90) DEFAULT NULL,`game_rating` tinyint(4) NOT NULL,`club_num` int(7) NOT NULL,`game_type` varchar(15) NOT NULL,`scoring_method` varchar(15) NOT NULL,`start_date` date NOT NULL,`end_date` date DEFAULT NULL,`session_cnt` tinyint(4) NOT NULL,`section_cnt` tinyint(4) NOT NULL, PRIMARY KEY (`game_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'hand_possibility_data':
-            sql += ' (`id` int(11) NOT NULL,`hand_record` varchar(10) NOT NULL,`board` tinyint(4) NOT NULL,`board_id_num` int(15) DEFAULT NULL,`dealer` varchar(1) NOT NULL,`vulnerability` varchar(10) NOT NULL,`double_dummy_ew` varchar(40) NOT NULL,`double_dummy_ns` varchar(45) NOT NULL,`par` varchar(40) NOT NULL,PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += ' (`hand_id` int(11) NOT NULL,`hand_record` varchar(10) NOT NULL,`board` tinyint(4) NOT NULL,`board_id_num` int(15) DEFAULT NULL,`dealer` varchar(1) NOT NULL,`vulnerability` varchar(10) NOT NULL,`double_dummy_ew` varchar(40) NOT NULL,`double_dummy_ns` varchar(45) NOT NULL,`par` varchar(40) NOT NULL,PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'hand_records_data':
-            sql += ' (`id` int(11) NOT NULL,`hand_record` varchar(10) NOT NULL,`board` tinyint(4) NOT NULL,`board_id_num` int(15) DEFAULT NULL,`direction` varchar(1) NOT NULL,`spades` varchar(13) NOT NULL,`hearts` varchar(13) NOT NULL,`diamonds` varchar(13) NOT NULL,`clubs` varchar(13) NOT NULL,PRIMARY KEY (`id`,`direction`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += ' (`hand_id` int(11) NOT NULL,`hand_record` varchar(10) NOT NULL,`board` tinyint(4) NOT NULL,`board_id_num` int(15) DEFAULT NULL,`direction` varchar(1) NOT NULL,`spades` varchar(13) NOT NULL,`hearts` varchar(13) NOT NULL,`diamonds` varchar(13) NOT NULL,`clubs` varchar(13) NOT NULL,PRIMARY KEY (`id`,`direction`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'hand_results_data':
-            sql += ' (`result_id` int(15) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(9) NOT NULL,`section_id` int(7) NOT NULL,`board_id` int(15) NOT NULL,`board_num` tinyint(4) NOT NULL,`round_num` tinyint(4) NOT NULL,`table_num` tinyint(4) NOT NULL,`ns_pair` varchar(5) NOT NULL,`ew_pair` varchar(5) NOT NULL,`ns_score` int(6) NOT NULL,`ew_score` int(6) NOT NULL,`contract` varchar(6) DEFAULT NULL,`declarer` varchar(1) DEFAULT NULL,`ew_match_points` decimal(6,2) NOT NULL,`ns_match_points` decimal(6,2) NOT NULL,`opening_lead` varchar(4) DEFAULT NULL,`result` tinyint(4) DEFAULT NULL,`tricks_taken` tinyint(4) DEFAULT NULL,PRIMARY KEY (`result_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += ' (`result_id` int(15) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(9) NOT NULL,`section_id` int(7) NOT NULL,`board_id` int(15) NOT NULL,`board_num` tinyint(4) NOT NULL,`round_num` tinyint(4) NOT NULL,`table_num` tinyint(4) NOT NULL,`ns_pair` varchar(5) NOT NULL,`ew_pair` varchar(5) NOT NULL,`ns_score` int(6) NOT NULL,`ew_score` int(6) NOT NULL,`contract` varchar(10) DEFAULT NULL,`declarer` varchar(1) DEFAULT NULL,`ew_match_points` decimal(6,2) NOT NULL,`ns_match_points` decimal(6,2) NOT NULL,`opening_lead` varchar(4) DEFAULT NULL,`result` tinyint(4) DEFAULT NULL,`tricks_taken` tinyint(4) DEFAULT NULL,PRIMARY KEY (`result_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'pair_results_data':
             sql += ' (pair_id_num int(15) NOT NULL,session_id int(7) NOT NULL,section_id int(7) NOT NULL,acbl_num int(10) NOT NULL,pair varchar(6) NOT NULL,score decimal(6,2) NOT NULL,percentage decimal(6,2) NOT NULL,mp_earned decimal(5,2) DEFAULT NULL,direction varchar(2) DEFAULT NULL,PRIMARY KEY (pair_id_num,acbl_num)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'player_data':
             sql += ' (`acbl_num` int(10) NOT NULL,`name` varchar(25) DEFAULT NULL,`city` varchar(20) DEFAULT NULL,`state` varchar(20) DEFAULT NULL,`master_points` float DEFAULT NULL,`bbo_username` varchar(20) DEFAULT NULL,`lifemaster` tinyint(1) NOT NULL,`last_updated` date NOT NULL,PRIMARY KEY (`acbl_num`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'section_data':
-            sql += '(`section_id` int(7) NOT NULL,`section_name` varchar(10) DEFAULT NULL,`game_id` int(7) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(10) DEFAULT NULL,`boards_per` tinyint(4) DEFAULT NULL,`round_count` tinyint(4) NOT NULL,`pair_count` smallint(6) NOT NULL, PRIMARY KEY (`section_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
+            sql += '(`section_id` int(7) NOT NULL,`section_name` varchar(10) DEFAULT NULL,`game_id` int(7) NOT NULL,`session_id` int(7) NOT NULL,`hand_record` varchar(10) DEFAULT NULL,`boards_per` tinyint(4) DEFAULT NULL,`round_count` tinyint(4) DEFAULT NULL,`pair_count` smallint(6) DEFAULT NULL, PRIMARY KEY (`section_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         elif table_name == 'strat_result_summary_data':
             sql += ' (`strat_id` int(15) NOT NULL,`pair_id_num` int(15) NOT NULL,`strat_num` smallint(6) NOT NULL,`rank` tinyint(4) DEFAULT NULL,`strat_type` varchar(10) DEFAULT NULL,PRIMARY KEY (`strat_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;'
         else:
@@ -208,33 +208,40 @@ class ACBL_spider(scrapy.Spider):
 
                 #scub for the necessary data
                 id_value = int(data.get('id'))
-                for game in self.already_pulled:
-                    #Another game skip check as sometimes the end of the URL isn't the game number
-                    if id_value == game:
+                skip = False
+                if self.already_pulled:
+                    for game in self.already_pulled:
+                        if id_value == game:
+                            skip = True
+                if not skip:
+                    self.add_data(data)
 
-                        players_df = self.get_players(data)
-                        club_df = self.get_club(data)
-                        game_df = self.get_game_details(data)
-                        section_df = self.get_section_data(data)
-                        hand_record = self.get_hand_records(data) #this returns a dictionary for 2 tables
-                        hand_results = self.get_hand_results(data)
-                        game_results = self.get_game_results(data)
-                        score_summary = self.get_score_summary(data)
-                        self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num', date_check=True)
-                        self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
-                        self.mydb.upload_df_to_database(df=game_df, table_name='game_data')
-                        self.mydb.upload_df_to_database(df=section_df, table_name='section_data')
-                        self.mydb.upload_df_to_database(df=hand_record['hand_record'], table_name='hand_records_data')
-                        self.mydb.upload_df_to_database(df=hand_record['hand_expect'], table_name='hand_possibility_data')
-                        self.mydb.upload_df_to_database(df=hand_results, table_name='hand_results_data')
-                        self.mydb.upload_df_to_database(df=game_results, table_name='pair_results_data')
-                        self.mydb.upload_df_to_database(df=score_summary, table_name='strat_result_summary_data')
+
                 
 
             else:
                 self.logger.error("Unable to find 'data' variable in the response")
         else:
             self.logger.error(f"Received a non-200 status code: {response.status}")
+
+    def add_data(self,data):
+        players_df = self.get_players(data)
+        club_df = self.get_club(data)
+        game_df = self.get_game_details(data)
+        section_df = self.get_section_data(data)
+        hand_record = self.get_hand_records(data) #this returns a dictionary for 2 tables
+        hand_results = self.get_hand_results(data)
+        game_results = self.get_game_results(data)
+        score_summary = self.get_score_summary(data)
+        self.mydb.upload_df_to_database(df=players_df,table_name='player_data',prim_key='acbl_num', date_check=True)
+        self.mydb.upload_df_to_database(df=club_df, table_name='club_data')
+        self.mydb.upload_df_to_database(df=game_df, table_name='game_data')
+        self.mydb.upload_df_to_database(df=section_df, table_name='section_data')
+        self.mydb.upload_df_to_database(df=hand_record['hand_record'], table_name='hand_records_data')
+        self.mydb.upload_df_to_database(df=hand_record['hand_expect'], table_name='hand_possibility_data')
+        self.mydb.upload_df_to_database(df=hand_results, table_name='hand_results_data')
+        self.mydb.upload_df_to_database(df=game_results, table_name='pair_results_data')
+        self.mydb.upload_df_to_database(df=score_summary, table_name='strat_result_summary_data')
 
     def errback_http(self, failure):
         # Handle HTTP errors and exceptions
@@ -279,6 +286,7 @@ class ACBL_spider(scrapy.Spider):
 
         print("Building Player Data for game..." + str(data['id']))
         df = pd.DataFrame(player_list, columns=['name', 'acbl_num', 'city', 'state', 'lifemaster', 'master_points', 'bbo_username','last_updated'])
+        df['lifemaster'] = df['lifemaster'].fillna(0)
         return df
 
     def get_club(self,data):
@@ -330,11 +338,10 @@ class ACBL_spider(scrapy.Spider):
         for session_num in range(len(sessions)):
             sections = sessions[session_num]['sections']
             hand_record_id = sessions[session_num]['hand_record_id']
-            game_id = sessions[session_num]['event_id']
             for section_num in range(len(sections)):
                 section_detail_list.append({
                     'section_id': sections[section_num]['id'],
-                    'game_id': game_id,
+                    'game_id': data['id'],
                     'session_id': sections[section_num]['session_id'], #usually the same as the game_id
                     'section_name': sections[section_num]['name'],
                     'hand_record': hand_record_id,
@@ -363,7 +370,7 @@ class ACBL_spider(scrapy.Spider):
                     if hand_records[hand_num]['board'] == sessions[session_num]['sections'][0]['boards'][board_num]['board_number']:
                         board_num_id = sessions[session_num]['sections'][0]['boards'][board_num]['id']
                 hand_record_details.append({
-                    'id': hand_records[hand_num]['id'],
+                    'hand_id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
                     'board_id_num': board_num_id,
@@ -374,7 +381,7 @@ class ACBL_spider(scrapy.Spider):
                     'clubs': hand_records[hand_num]['north_clubs'],
                 })
                 hand_record_details.append({
-                    'id': hand_records[hand_num]['id'],
+                    'hand_id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
                     'board_id_num': board_num_id,
@@ -385,7 +392,7 @@ class ACBL_spider(scrapy.Spider):
                     'clubs': hand_records[hand_num]['south_clubs'],
                 })
                 hand_record_details.append({
-                    'id': hand_records[hand_num]['id'],
+                    'hand_id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
                     'board_id_num': board_num_id,
@@ -396,7 +403,7 @@ class ACBL_spider(scrapy.Spider):
                     'clubs': hand_records[hand_num]['east_clubs'],
                 })
                 hand_record_details.append({
-                    'id': hand_records[hand_num]['id'],
+                    'hand_id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
                     'board_id_num': board_num_id,
@@ -407,7 +414,7 @@ class ACBL_spider(scrapy.Spider):
                     'clubs': hand_records[hand_num]['west_clubs'],
                 })
                 hand_expectation.append({
-                    'id': hand_records[hand_num]['id'],
+                    'hand_id': hand_records[hand_num]['id'],
                     'hand_record': hand_record_id,
                     'board': hand_records[hand_num]['board'],
                     'board_id_num': board_num_id,
@@ -419,7 +426,7 @@ class ACBL_spider(scrapy.Spider):
 
                 })
 
-        df_hr = pd.DataFrame(hand_record_details,columns=['id','hand_record','board','board_id_num','direction','spades','hearts','diamonds','clubs'])
+        df_hr = pd.DataFrame(hand_record_details,columns=['hand_id','hand_record','board','board_id_num','direction','spades','hearts','diamonds','clubs'])
         #reformat to get better data, remove spaces and turn 10 into T so it is only one character
         df_hr['spades'] = df_hr['spades'].str.replace('10', 'T').str.replace(' ', '')
         df_hr['hearts'] = df_hr['hearts'].str.replace('10', 'T').str.replace(' ', '')
@@ -430,7 +437,7 @@ class ACBL_spider(scrapy.Spider):
         df_hr = df_hr.dropna(subset=['hand_record'])
         df_hr = df_hr[df_hr['hand_record'] != 'SHUFFLE']
 
-        df_hexp = pd.DataFrame(hand_expectation, columns=['id','hand_record','board','board_id_num','dealer','vulnerability','double_dummy_ew','double_dummy_ns','par'])
+        df_hexp = pd.DataFrame(hand_expectation, columns=['hand_id','hand_record','board','board_id_num','dealer','vulnerability','double_dummy_ew','double_dummy_ns','par'])
         df_hexp['board_id_num'] = df_hexp['board_id_num'].fillna(0)
         df_hexp = df_hexp.dropna(subset=['hand_record'])
         df_hexp = df_hexp[df_hexp['hand_record'] != 'SHUFFLE']
@@ -496,7 +503,6 @@ class ACBL_spider(scrapy.Spider):
                         })
         df = pd.DataFrame(game_results_details,columns=['pair_id_num','session_id','section_id','acbl_num','pair','score','percentage','mp_earned','direction'])
         #add some random easy identifiable numbers if there is no acbl number
-        df['acbl_num'].fillna(pd.Series(np.random.randint(1000, 10000, size=len(df.index))), inplace=True)
         return df
 
     def get_hand_results(self,data):
@@ -556,7 +562,7 @@ class ACBL_spider(scrapy.Spider):
         #shoudl be some nulls in results when there are weird adjustments
         df['ns_score'] = df['ns_score'].str.replace('PASS','0')
         df['ew_score'] = df['ew_score'].str.replace('PASS','0')
-        df = df.dropna(subset=['round','hand_record'])
+        df = df.dropna(subset=['round_num','hand_record'])
         df = df[df['hand_record'] != 'SHUFFLE']
         return df
 
@@ -585,8 +591,8 @@ class ACBL_spider(scrapy.Spider):
 
 if __name__ == "__main__":
     
-    #data = DatabasePipeline()
-    #data.purge_db_contents() #don't want this in place all the time
+    data = DatabasePipeline()
+    data.purge_db_contents() #don't want this in place all the time
     process = CrawlerProcess()
     process.crawl(ACBL_spider)
     process.start()
